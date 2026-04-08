@@ -19,14 +19,30 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // ✅ Security (مفتوح حالياً للتجربة)
+    // ✅ 🔥 Security FIX (مهم جدًا)
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
+
+            // 🔥 مهم عشان Swagger و Railway
+            .headers(headers -> headers.frameOptions(frame -> frame.disable()))
+
             .authorizeHttpRequests(auth -> auth
+                // ✅ خلي Swagger مفتوح
+                .requestMatchers(
+                        "/swagger-ui/**",
+                        "/v3/api-docs/**",
+                        "/swagger-ui.html"
+                ).permitAll()
+
+                // ✅ باقي ال API مفتوح (للتجربة)
                 .anyRequest().permitAll()
-            );
+            )
+
+            // 🔥 مهم جدًا → بدون login page
+            .formLogin(form -> form.disable())
+            .httpBasic(basic -> basic.disable());
 
         return http.build();
     }
@@ -38,14 +54,14 @@ public class SecurityConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("*") // لاحقاً حددي دومين الفرونت
+                        .allowedOrigins("*")
                         .allowedMethods("*")
                         .allowedHeaders("*");
             }
         };
     }
 
-    // ✅ 🔥 أهم حل لمشكلتك (ngrok + https)
+    // ✅ 🔥 مهم لـ Railway (proxy + https)
     @Bean
     public ForwardedHeaderFilter forwardedHeaderFilter() {
         return new ForwardedHeaderFilter();
