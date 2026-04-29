@@ -6,6 +6,7 @@ import com.lama.roadmap.repository.NotificationRepository;
 import com.lama.roadmap.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -20,7 +21,12 @@ public class NotificationService {
         this.userRepository = userRepository;
     }
 
-    public Notification createNotification(Long userId,String title,String message,String type,Long relatedId){
+    // ✅ إنشاء إشعار (موحد)
+    public Notification createNotification(Long userId,
+                                           String title,
+                                           String message,
+                                           String type,
+                                           Long relatedId){
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -32,10 +38,13 @@ public class NotificationService {
         notification.setMessage(message);
         notification.setType(type);
         notification.setRelatedId(relatedId);
+        notification.setIsRead(false);
+        notification.setCreatedAt(LocalDateTime.now());
 
         return notificationRepository.save(notification);
     }
 
+    // ✅ جلب الإشعارات
     public List<Notification> getUserNotifications(Long userId){
 
         User user = userRepository.findById(userId)
@@ -44,6 +53,7 @@ public class NotificationService {
         return notificationRepository.findByUserOrderByCreatedAtDesc(user);
     }
 
+    // ✅ عدد غير المقروء
     public long getUnreadCount(Long userId){
 
         User user = userRepository.findById(userId)
@@ -52,33 +62,35 @@ public class NotificationService {
         return notificationRepository.countByUserAndIsReadFalse(user);
     }
 
+    // ✅ تعليم إشعار واحد كمقروء
     public Notification markAsRead(Long notificationId){
 
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new RuntimeException("Notification not found"));
 
-        notification.setIsRead(true);
+        if(Boolean.TRUE.equals(notification.getIsRead())){
+            return notification;
+        }
 
+        notification.setIsRead(true);
         return notificationRepository.save(notification);
     }
-    
-    public void sendNotification(Long userId, String title, String message, String type, Long relatedId) {
 
-        Notification notification = new Notification();
+    // ✅ 🔥 أهم إضافة: تعليم كل إشعارات الشات كمقروءة
+    public void markChatNotificationsAsRead(Long userId, Long assignmentId){
 
-        // نجيب المستخدم عن طريق ID
-        User user = new User();
-        user.setId(userId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        notification.setUser(user);
-        notification.setTitle(title);
-        notification.setMessage(message);
-        notification.setType(type);
-        notification.setRelatedId(relatedId);
-        notification.setIsRead(false);
-        notification.setCreatedAt(java.time.LocalDateTime.now());
+        List<Notification> notifications =
+                notificationRepository.findByUserAndTypeAndRelatedIdAndIsReadFalse(
+                        user, "CHAT", assignmentId
+                );
 
-        notificationRepository.save(notification);
+        for(Notification n : notifications){
+            n.setIsRead(true);
+        }
+
+        notificationRepository.saveAll(notifications);
     }
-
 }

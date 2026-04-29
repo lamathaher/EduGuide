@@ -6,7 +6,10 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "messages")
 public class Message {
-
+	public enum MessageType {
+	    TEXT,
+	    SYSTEM
+	}
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -21,6 +24,17 @@ public class Message {
 
     @Column(columnDefinition = "TEXT")
     private String content;
+
+    public MessageType getType() {
+		return type;
+	}
+
+	public void setType(MessageType type) {
+		this.type = type;
+	}
+
+	@Enumerated(EnumType.STRING)
+    private MessageType type = MessageType.TEXT;
 
     private Boolean isRead = false;
 

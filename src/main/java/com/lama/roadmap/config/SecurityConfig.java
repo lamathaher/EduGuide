@@ -23,24 +23,21 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+            .cors(cors -> {}) // 🔥🔥 هذا أهم سطر
+
             .csrf(csrf -> csrf.disable())
 
-            // 🔥 مهم عشان Swagger و Railway
             .headers(headers -> headers.frameOptions(frame -> frame.disable()))
 
             .authorizeHttpRequests(auth -> auth
-                // ✅ خلي Swagger مفتوح
                 .requestMatchers(
                         "/swagger-ui/**",
                         "/v3/api-docs/**",
                         "/swagger-ui.html"
                 ).permitAll()
-
-                // ✅ باقي ال API مفتوح (للتجربة)
                 .anyRequest().permitAll()
             )
 
-            // 🔥 مهم جدًا → بدون login page
             .formLogin(form -> form.disable())
             .httpBasic(basic -> basic.disable());
 
@@ -54,8 +51,11 @@ public class SecurityConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("*")
-                        .allowedMethods("*")
+                .allowedOrigins(
+                	    "http://localhost:5173",       // React dev
+                	    "http://localhost:3000",       // لو في dev server ثاني
+                	    "https://coeducational-xochitl-branchiform.ngrok-free.dev"  // ngrok
+                	)                .allowedMethods("*")
                         .allowedHeaders("*");
             }
         };

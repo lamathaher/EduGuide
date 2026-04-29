@@ -10,4 +10,5 @@ import java.util.List;
 public interface QuizAttemptRepository extends JpaRepository<QuizAttempt, Long> {
     List<QuizAttempt> findByStudentAndQuiz(User student, Quiz quiz);
     int countByStudentAndQuiz(User student, Quiz quiz);
+    List<QuizAttempt> findByStudent(User student);
 }

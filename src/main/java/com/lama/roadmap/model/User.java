@@ -2,6 +2,7 @@ package com.lama.roadmap.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -18,59 +19,49 @@ public class User {
 
     private String passwordHash;
 
-    
+    private LocalDateTime lastActivityAt;
+    private LocalDateTime lastReminderSentAt;
+
     private Integer yearsOfExperience;
 
     @Column(columnDefinition = "TEXT")
     private String bio;
-    public Integer getYearsOfExperience() {
-		return yearsOfExperience;
-	}
-    
-    @Column(name="last_opened_roadmap_id")
+
+    @Column(name = "last_opened_roadmap_id")
     private Long lastOpenedRoadmapId;
-    
-    
-	public void setYearsOfExperience(Integer yearsOfExperience) {
-		this.yearsOfExperience = yearsOfExperience;
-	}
 
-	public Long getLastOpenedRoadmapId() {
-		return lastOpenedRoadmapId;
-	}
-
-	public void setLastOpenedRoadmapId(Long lastOpenedRoadmapId) {
-		this.lastOpenedRoadmapId = lastOpenedRoadmapId;
-	}
-
-	public String getBio() {
-		return bio;
-	}
-
-	public void setBio(String bio) {
-		this.bio = bio;
-	}
-
-	@Enumerated(EnumType.STRING)
+    @Enumerated(EnumType.STRING)
     private Role role;
 
-    // Only for USER
+    // =========================
+    // USER fields
+    // =========================
     private String major;
 
-    @Column(columnDefinition = "TEXT")
-    private String skills;
+    @ElementCollection
+    private List<String> skills;
 
     @Column(columnDefinition = "TEXT")
     private String interests;
 
-    // Only for instructor
-    private String expertiseField;
-
-    private String status;
+    // =========================
+    // INSTRUCTOR fields
+    // =========================
+ // ✅ الجديد
+ // ✅ الجديد
+    @ElementCollection
+    @Enumerated(EnumType.STRING)
+    private List<ExpertiseField> expertiseFields;
+    
+    public List<ExpertiseField> getExpertiseFields() { return expertiseFields; }
+    public void setExpertiseFields(List<ExpertiseField> expertiseFields) { this.expertiseFields = expertiseFields; }
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    // =========================
+    // Lifecycle
+    // =========================
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -82,100 +73,53 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 
-	public Long getId() {
-		return id;
-	}
+    // =========================
+    // Getters & Setters
+    // =========================
 
-	public void setId(Long id) {
-		this.id = id;
-	}
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-	public String getFullName() {
-		return fullName;
-	}
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
 
-	public void setFullName(String fullName) {
-		this.fullName = fullName;
-	}
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
 
-	public String getEmail() {
-		return email;
-	}
+    public String getPasswordHash() { return passwordHash; }
+    public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
 
-	public void setEmail(String email) {
-		this.email = email;
-	}
+    public LocalDateTime getLastActivityAt() { return lastActivityAt; }
+    public void setLastActivityAt(LocalDateTime lastActivityAt) { this.lastActivityAt = lastActivityAt; }
 
-	public String getPasswordHash() {
-		return passwordHash;
-	}
+    public LocalDateTime getLastReminderSentAt() { return lastReminderSentAt; }
+    public void setLastReminderSentAt(LocalDateTime lastReminderSentAt) { this.lastReminderSentAt = lastReminderSentAt; }
 
-	public void setPasswordHash(String passwordHash) {
-		this.passwordHash = passwordHash;
-	}
+    public Integer getYearsOfExperience() { return yearsOfExperience; }
+    public void setYearsOfExperience(Integer yearsOfExperience) { this.yearsOfExperience = yearsOfExperience; }
 
-	public Role getRole() {
-		return role;
-	}
+    public String getBio() { return bio; }
+    public void setBio(String bio) { this.bio = bio; }
 
-	public void setRole(Role role) {
-		this.role = role;
-	}
+    public Long getLastOpenedRoadmapId() { return lastOpenedRoadmapId; }
+    public void setLastOpenedRoadmapId(Long lastOpenedRoadmapId) { this.lastOpenedRoadmapId = lastOpenedRoadmapId; }
 
-	public String getMajor() {
-		return major;
-	}
+    public Role getRole() { return role; }
+    public void setRole(Role role) { this.role = role; }
 
-	public void setMajor(String major) {
-		this.major = major;
-	}
+    public String getMajor() { return major; }
+    public void setMajor(String major) { this.major = major; }
 
-	public String getSkills() {
-		return skills;
-	}
+    public List<String> getSkills() { return skills; }
+    public void setSkills(List<String> skills) { this.skills = skills; }
 
-	public void setSkills(String skills) {
-		this.skills = skills;
-	}
+    public String getInterests() { return interests; }
+    public void setInterests(String interests) { this.interests = interests; }
 
-	public String getInterests() {
-		return interests;
-	}
 
-	public void setInterests(String interests) {
-		this.interests = interests;
-	}
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 
-	public String getExpertiseField() {
-		return expertiseField;
-	}
-
-	public void setExpertiseField(String expertiseField) {
-		this.expertiseField = expertiseField;
-	}
-
-	public String getStatus() {
-		return status;
-	}
-
-	public void setStatus(String status) {
-		this.status = status;
-	}
-
-	public LocalDateTime getCreatedAt() {
-		return createdAt;
-	}
-
-	public void setCreatedAt(LocalDateTime createdAt) {
-		this.createdAt = createdAt;
-	}
-
-	public LocalDateTime getUpdatedAt() {
-		return updatedAt;
-	}
-
-	public void setUpdatedAt(LocalDateTime updatedAt) {
-		this.updatedAt = updatedAt;
-	}
-
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

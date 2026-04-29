@@ -17,11 +17,11 @@ public class AssignmentController {
     }
 
     @PostMapping
-    public InstructorAssignment assignInstructor(
+    public InstructorAssignment createRequest(
             @RequestParam Long studentId,
             @RequestParam Long instructorId) {
 
-        return assignmentService.assignInstructor(studentId, instructorId);
+        return assignmentService.createRequest(studentId, instructorId);
     }
 
     @GetMapping("/instructor/{id}")

@@ -11,20 +11,26 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
-
 import org.springframework.http.*;
+
 @Service
 public class RoadmapService {
 
     private final RoadmapRepository roadmapRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public RoadmapService(RoadmapRepository roadmapRepository,
-                           UserRepository userRepository) {
+                          UserRepository userRepository,
+                          NotificationService notificationService) {
         this.roadmapRepository = roadmapRepository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
-    
+
+    // =========================
+    // CONVERT TO DTO
+    // =========================
     private RoadmapResponse convertToResponse(Roadmap roadmap) {
 
         RoadmapResponse response = new RoadmapResponse();
@@ -43,13 +49,14 @@ public class RoadmapService {
         return response;
     }
 
+    // =========================
+    // SAVE ROADMAP
+    // =========================
     public Roadmap saveRoadmap(SaveRoadmapRequest request) {
 
-        // 1️⃣ نجيب اليوزر
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 2️⃣ ننشئ roadmap جديدة
         Roadmap roadmap = new Roadmap();
 
         roadmap.setUser(user);
@@ -61,10 +68,48 @@ public class RoadmapService {
         roadmap.setConfidenceLevel(request.getConfidenceLevel());
         roadmap.setRoadmapContent(request.getRoadmapContent());
 
-        // 3️⃣ نحفظها
-        return roadmapRepository.save(roadmap);
+        Roadmap saved = roadmapRepository.save(roadmap);
+
+        notificationService.createNotification(
+                user.getId(),
+                "Your roadmap is ready 🎯",
+                "Start learning now and track your progress!",
+                "ROADMAP",
+                saved.getId()
+        );
+
+        return saved;
     }
-    
+
+    // =========================
+    // BUILD QUESTION FOR AI
+    // =========================
+    private String buildPersonalizedQuestion(Roadmap roadmap) {
+
+        if (roadmap == null) return "generate roadmap";
+
+        return String.format(
+                "generate roadmap\n\n" +
+                "USER ANSWERS:\n" +
+                "- Learning Path: %s\n" +
+                "- Roadmap Length: %s\n" +
+                "- Learning Style: %s\n" +
+                "- Weekly Study Time: %s\n" +
+                "- Main Goal: %s\n" +
+                "- Confidence Level: %s\n\n" +
+                "YOU MUST apply ALL personalization rules strictly based on these answers.",
+                roadmap.getLearningPath() != null ? roadmap.getLearningPath() : "Not specified",
+                roadmap.getRoadmapLength() != null ? roadmap.getRoadmapLength() : "Not specified",
+                roadmap.getLearningStyle() != null ? roadmap.getLearningStyle() : "Not specified",
+                roadmap.getWeeklyStudyTime() != null ? roadmap.getWeeklyStudyTime() : "Not specified",
+                roadmap.getMainGoal() != null ? roadmap.getMainGoal() : "Not specified",
+                roadmap.getConfidenceLevel() != null ? roadmap.getConfidenceLevel() : "Not specified"
+        );
+    }
+
+    // =========================
+    // GET USER ROADMAPS
+    // =========================
     public java.util.List<RoadmapResponse> getUserRoadmaps(Long userId) {
 
         User user = userRepository.findById(userId)
@@ -75,7 +120,10 @@ public class RoadmapService {
                 .map(this::convertToResponse)
                 .toList();
     }
-    
+
+    // =========================
+    // GET BY ID
+    // =========================
     public RoadmapResponse getRoadmapById(Long roadmapId) {
 
         Roadmap roadmap = roadmapRepository.findById(roadmapId)
@@ -83,8 +131,10 @@ public class RoadmapService {
 
         return convertToResponse(roadmap);
     }
-    
-    
+
+    // =========================
+    // DELETE
+    // =========================
     public void deleteRoadmap(Long roadmapId) {
 
         Roadmap roadmap = roadmapRepository.findById(roadmapId)
@@ -92,7 +142,10 @@ public class RoadmapService {
 
         roadmapRepository.delete(roadmap);
     }
-    
+
+    // =========================
+    // UPDATE
+    // =========================
     public RoadmapResponse updateRoadmap(Long roadmapId, SaveRoadmapRequest request) {
 
         Roadmap roadmap = roadmapRepository.findById(roadmapId)
@@ -108,10 +161,59 @@ public class RoadmapService {
 
         Roadmap updated = roadmapRepository.save(roadmap);
 
+        notificationService.createNotification(
+                updated.getUser().getId(),
+                "Roadmap updated 🔄",
+                "Your roadmap has been updated successfully!",
+                "ROADMAP",
+                updated.getId()
+        );
+
         return convertToResponse(updated);
     }
-    
+
+    // =========================
+    // GENERATE ROADMAP (AI)
+    // =========================
     public RoadmapResponse generateRoadmap(String question, String userId) {
+
+        String flowId = "c6a24e7c-50a8-49db-9705-1bbaac5119fe";
+        String url = "http://localhost:3000/api/v1/prediction/" + flowId;
+
+        User user = userRepository.findById(Long.parseLong(userId))
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Roadmap lastRoadmap = roadmapRepository
+                .findTopByUserOrderByCreatedAtDesc(user)
+                .orElse(null);
+
+        String personalizedQuestion =
+                question + "\n\n" + buildPersonalizedQuestion(lastRoadmap);
+
+        String aiText = callFlowise(personalizedQuestion, "user-" + userId);
+
+        Roadmap roadmap = new Roadmap();
+        roadmap.setUser(user);
+        roadmap.setLearningPath("Generated Roadmap");
+        roadmap.setRoadmapContent(aiText);
+
+        Roadmap saved = roadmapRepository.save(roadmap);
+
+        notificationService.createNotification(
+                user.getId(),
+                "AI Roadmap Generated 🤖",
+                "Your personalized roadmap is ready!",
+                "ROADMAP",
+                saved.getId()
+        );
+
+        return convertToResponse(saved);
+    }
+
+    // =========================
+    // CALL AI
+    // =========================
+    public String callFlowise(String question, String sessionId) {
 
         String flowId = "c6a24e7c-50a8-49db-9705-1bbaac5119fe";
         String url = "http://localhost:3000/api/v1/prediction/" + flowId;
@@ -121,64 +223,37 @@ public class RoadmapService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
 
-        String requestBody = """
-            {
-                "question": "%s",
-                "overrideConfig": { "sessionId": "user-%s" }
-            }
-            """.formatted(question, userId);
+        Map<String, Object> body = new HashMap<>();
+        body.put("question", question);
 
-        HttpEntity<String> entity = new HttpEntity<>(requestBody, headers);
+        Map<String, String> config = new HashMap<>();
+        config.put("sessionId", sessionId);
+
+        body.put("overrideConfig", config);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
 
         ResponseEntity<Map> response =
                 restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
 
-        String aiText = (String) response.getBody().get("text");
+        Map<String, Object> responseBody = response.getBody();
 
-        // هون منخزن بالـ DB
-        User user = userRepository.findById(Long.parseLong(userId))
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (responseBody == null || responseBody.get("text") == null) {
+            throw new RuntimeException("Flowise returned empty response");
+        }
 
-        Roadmap roadmap = new Roadmap();
-        roadmap.setUser(user);
-        roadmap.setLearningPath("AI Generated");
-        roadmap.setRoadmapContent(aiText);
-
-        Roadmap saved = roadmapRepository.save(roadmap);
-
-        return convertToResponse(saved);
+        return (String) responseBody.get("text");
     }
-    public String callFlowise(String question) {
 
-        String url = "http://localhost:3000/api/v1/prediction/c6a24e7c-50a8-49db-9705-1bbaac5119fe";
-
-        RestTemplate restTemplate = new RestTemplate();
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("question", question);
-
-        Map<String, Object> override = new HashMap<>();
-        override.put("sessionId", "user-1");
-
-        body.put("overrideConfig", override);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-
-        HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
-
-        ResponseEntity<Map> response = restTemplate.postForEntity(url, request, Map.class);
-
-        return response.getBody().get("text").toString();
-    }
+    // =========================
+    // CONTINUE LEARNING
+    // =========================
     public void setLastOpenedRoadmap(Long roadmapId, Long userId){
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         user.setLastOpenedRoadmapId(roadmapId);
-
         userRepository.save(user);
     }
-    
 }

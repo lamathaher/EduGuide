@@ -1,10 +1,7 @@
 package com.lama.roadmap.service;
 
 import com.lama.roadmap.dto.*;
-import com.lama.roadmap.model.Question;
-import com.lama.roadmap.model.Quiz;
-import com.lama.roadmap.model.QuizAttempt;
-import com.lama.roadmap.model.User;
+import com.lama.roadmap.model.*;
 import com.lama.roadmap.repository.*;
 import org.springframework.stereotype.Service;
 
@@ -75,17 +72,120 @@ public class QuizService {
     }
 
     // =========================
-    // GET QUIZZES
+    // QUIZ CARDS
     // =========================
-    public List<Quiz> getQuizzes(String path, String level) {
+    public List<QuizCardDTO> getQuizCards(Long studentId, String path, String level) {
+
+        List<Quiz> quizzes;
 
         if (path != null && level != null) {
-            return quizRepository.findByPathAndLevel(path, level);
+            quizzes = quizRepository.findByPathAndLevel(path, level);
+        } else {
+            quizzes = quizRepository.findAll();
         }
 
-        return quizRepository.findAll();
+        User student = userRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        return quizzes.stream()
+                .map(quiz -> {
+
+                    List<QuizAttempt> attempts =
+                            attemptRepository.findByStudentAndQuiz(student, quiz);
+
+                    int bestScore = attempts.stream()
+                            .mapToInt(QuizAttempt::getScore)
+                            .max()
+                            .orElse(0);
+
+                    int attemptsCount = attempts.size();
+
+                    return new QuizCardDTO(
+                            quiz.getId(),
+                            quiz.getTitle(),
+                            quiz.getPath(),
+                            quiz.getLevel(),
+                            bestScore,
+                            attemptsCount,
+                            bestScore > 0
+                    );
+                })
+                .collect(Collectors.toList());
     }
-    
+
+    // =========================
+    // RECOMMENDED QUIZ (REAL PROGRESS 🔥)
+    // =========================
+    public RecommendedQuizDTO getRecommendedQuiz(Long studentId) {
+
+        User student = userRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        List<QuizAttempt> allAttempts =
+                attemptRepository.findByStudent(student);
+
+        if (allAttempts.isEmpty()) {
+            return null; // ما في ولا كويز
+        }
+
+        // آخر محاولة
+        QuizAttempt lastAttempt = allAttempts.get(allAttempts.size() - 1);
+
+        Quiz quiz = lastAttempt.getQuiz();
+
+        // نحسب progress
+        int answered = answerRepository.countByAttempt(lastAttempt);
+        int total = questionRepository.findByQuiz(quiz).size();
+
+        int progress = (int) (((double) answered / total) * 100);
+
+        // إذا مكتمل → ما بدنا continue
+        if (progress == 100) {
+            return null;
+        }
+
+        return new RecommendedQuizDTO(
+                quiz.getId(),
+                quiz.getTitle(),
+                quiz.getDescription(),
+                quiz.getPath(),
+                quiz.getLevel(),
+                progress
+        );
+    }
+
+    public ResumeQuizDTO getResumeQuiz(Long studentId) {
+
+        User student = userRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        List<QuizAttempt> attempts = attemptRepository.findByStudent(student);
+
+        if (attempts.isEmpty()) return null;
+
+        QuizAttempt lastAttempt = attempts.get(attempts.size() - 1);
+        Quiz quiz = lastAttempt.getQuiz();
+
+        int answered = answerRepository.countByAttempt(lastAttempt);
+        int total = questionRepository.findByQuiz(quiz).size();
+
+        int progress = (int) (((double) answered / total) * 100);
+
+        if (progress == 100) return null;
+
+        // 👇 هذا أهم سطر
+        int nextQuestionIndex = answered;
+
+        return new ResumeQuizDTO(
+                quiz.getId(),
+                progress,
+                nextQuestionIndex
+        );
+    }
+
+    // =========================
+    // CALCULATE SCORE
+    // =========================
     private int calculateScore(SubmitQuizRequest request) {
 
         int correctCount = 0;
@@ -95,22 +195,22 @@ public class QuizService {
             Question question = questionRepository.findById(answer.getQuestionId())
                     .orElseThrow(() -> new RuntimeException("Question not found"));
 
-            if (question.getCorrectAnswer().equalsIgnoreCase(answer.getAnswer()))
-            {
+            if (question.getCorrectAnswer().equalsIgnoreCase(answer.getAnswer())) {
                 correctCount++;
             }
         }
 
         int total = request.getAnswers().size();
 
-        // نحسب نسبة مئوية
         return (int) (((double) correctCount / total) * 100);
     }
 
     // =========================
-    // SUBMIT QUIZ 🔥
+    // SUBMIT QUIZ
     // =========================
     public int submitQuiz(SubmitQuizRequest request) {
+
+        System.out.println("🔥 SUBMIT QUIZ STARTED");
 
         User student = userRepository.findById(request.getStudentId())
                 .orElseThrow(() -> new RuntimeException("Student not found"));
@@ -118,7 +218,9 @@ public class QuizService {
         Quiz quiz = quizRepository.findById(request.getQuizId())
                 .orElseThrow(() -> new RuntimeException("Quiz not found"));
 
-        // حساب السكور
+        // 🔥 عدد الإجابات
+        System.out.println("ANSWERS SIZE = " + request.getAnswers().size());
+
         int score = calculateScore(request);
 
         int attemptNumber = attemptRepository.countByStudentAndQuiz(student, quiz) + 1;
@@ -133,36 +235,29 @@ public class QuizService {
 
         QuizAttempt savedAttempt = attemptRepository.save(attempt);
 
-        // =========================
-        // 🔔 Notification للطالب
-        // =========================
-        notificationService.createNotification(
-                student.getId(),
-                "Quiz Completed",
-                "You completed '" + quiz.getTitle() + "' with score " + score + "%",
-                "QUIZ_RESULT",
-                savedAttempt.getId()
-        );
+        // 🔥 حفظ الإجابات
+        for (AnswerDTO answer : request.getAnswers()) {
 
-        // =========================
-        // 🔔 Notification للمدرب
-        // =========================
-        assignmentRepository
-                .findByStudentIdAndStatus(student.getId(), "active")
-                .ifPresent(assignment -> {
+            // 🔥 اطبع كل إجابة
+            System.out.println("ANSWER: " + answer.getAnswer());
 
-                    String message = student.getFullName()
-                            + " completed '" + quiz.getTitle()
-                            + "' with score " + score + "%";
+            Question question = questionRepository.findById(answer.getQuestionId())
+                    .orElseThrow(() -> new RuntimeException("Question not found"));
 
-                    notificationService.createNotification(
-                            assignment.getInstructor().getId(),
-                            "Student Quiz Update",
-                            message,
-                            "QUIZ_RESULT",
-                            savedAttempt.getId()
-                    );
-                });
+            boolean isCorrect = question.getCorrectAnswer()
+                    .equalsIgnoreCase(answer.getAnswer());
+
+            StudentAnswer studentAnswer = new StudentAnswer();
+            studentAnswer.setAttempt(savedAttempt);
+            studentAnswer.setQuestion(question);
+            studentAnswer.setSelectedAnswer(answer.getAnswer());
+            studentAnswer.setCorrect(isCorrect);
+            studentAnswer.setCreatedAt(LocalDateTime.now());
+
+            answerRepository.save(studentAnswer);
+        }
+
+        System.out.println("✅ QUIZ SUBMITTED SUCCESSFULLY, SCORE = " + score);
 
         return score;
     }
@@ -189,7 +284,17 @@ public class QuizService {
             return res;
         }).collect(Collectors.toList());
     }
+ // =========================
+ // GET QUIZZES (OLD - optional)
+ // =========================
+ public List<Quiz> getQuizzes(String path, String level) {
 
+     if (path != null && level != null) {
+         return quizRepository.findByPathAndLevel(path, level);
+     }
+
+     return quizRepository.findAll();
+ }
     // =========================
     // BEST SCORE
     // =========================

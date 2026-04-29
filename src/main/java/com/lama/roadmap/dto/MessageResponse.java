@@ -11,12 +11,15 @@ public class MessageResponse {
     private String content;
     private Boolean isRead;
     private LocalDateTime createdAt;
+    private String type;
 
     public MessageResponse() {}
 
+    // ✅ Constructor كامل (مهم)
     public MessageResponse(Long id, Long senderId, String senderName,
                            String senderRole, String content,
-                           Boolean isRead, LocalDateTime createdAt) {
+                           Boolean isRead, LocalDateTime createdAt,
+                           String type) {
         this.id = id;
         this.senderId = senderId;
         this.senderName = senderName;
@@ -24,7 +27,10 @@ public class MessageResponse {
         this.content = content;
         this.isRead = isRead;
         this.createdAt = createdAt;
+        this.type = type;
     }
+
+    // Getters
 
     public Long getId() {
         return id;
@@ -52,5 +58,14 @@ public class MessageResponse {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    // Setter (اختياري، بس خليته لو احتجتيه)
+    public void setType(String type) {
+        this.type = type;
     }
 }

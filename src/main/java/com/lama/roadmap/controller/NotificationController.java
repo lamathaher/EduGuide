@@ -30,5 +30,9 @@ public class NotificationController {
     public Notification markAsRead(@PathVariable Long id){
         return notificationService.markAsRead(id);
     }
-
+    @PutMapping("/chat/{assignmentId}/read")
+    public void markChatNotificationsAsRead(@PathVariable Long assignmentId,
+                                            @RequestParam Long userId){
+        notificationService.markChatNotificationsAsRead(userId, assignmentId);
+    }
 }

@@ -19,18 +19,30 @@ public class MessageController {
     }
 
     @PostMapping
-    public Message sendMessage(@RequestBody SendMessageRequest request){
+    public MessageResponse sendMessage(@RequestBody SendMessageRequest request){
         return messageService.sendMessage(request);
     }
 
     @GetMapping("/assignment/{id}")
-    public List<MessageResponse> getConversation(@PathVariable Long id){
-        return messageService.getConversation(id);
+    public List<MessageResponse> getConversation(
+            @PathVariable Long id,
+            @RequestParam Long userId
+    ){
+        return messageService.getConversation(id, userId);
     }
-
     @PutMapping("/read/{id}")
-    public Message markAsRead(@PathVariable Long id){
-        return messageService.markAsRead(id);
+    public Message markAsRead(
+            @PathVariable Long id,
+            @RequestParam Long userId
+    ){
+        return messageService.markAsRead(id, userId);
     }
 
+    @PutMapping("/read/assignment/{assignmentId}")
+    public void markConversationAsRead(
+            @PathVariable Long assignmentId,
+            @RequestParam Long userId
+    ){
+        messageService.markConversationAsRead(assignmentId, userId);
+    }
 }

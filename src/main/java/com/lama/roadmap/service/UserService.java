@@ -3,10 +3,13 @@ package com.lama.roadmap.service;
 import com.lama.roadmap.dto.LoginRequest;
 import com.lama.roadmap.dto.UserRequest;
 import com.lama.roadmap.dto.UserResponse;
+import com.lama.roadmap.model.ExpertiseField;
+import com.lama.roadmap.model.InstructorAssignment;
 import com.lama.roadmap.model.Role;
 import com.lama.roadmap.model.User;
 import com.lama.roadmap.repository.UserRepository;
 import org.springframework.stereotype.Service;
+import com.lama.roadmap.repository.InstructorAssignmentRepository;
 
 import java.util.List;
 
@@ -17,13 +20,19 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder passwordEncoder;
-
+    private final InstructorAssignmentRepository assignmentRepository;
+    
     public UserService(UserRepository userRepository,
-                       BCryptPasswordEncoder passwordEncoder) {
-        this.userRepository = userRepository;
-        this.passwordEncoder = passwordEncoder;
-    }
+            BCryptPasswordEncoder passwordEncoder,
+            InstructorAssignmentRepository assignmentRepository) {
+this.userRepository = userRepository;
+this.passwordEncoder = passwordEncoder;
+this.assignmentRepository = assignmentRepository;
+}
 
+    // =========================
+    // CREATE USER
+    // =========================
     public UserResponse createUser(UserRequest request) {
 
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -39,15 +48,13 @@ public class UserService {
         );
 
         // =========================
-        // ROLE + STATUS 🔥
+        // ROLE
         // =========================
         if ("STUDENT".equalsIgnoreCase(request.getAccountType())) {
             user.setRole(Role.USER);
-            user.setStatus("active"); // ✅ الطالب مباشرة active
 
         } else if ("INSTRUCTOR".equalsIgnoreCase(request.getAccountType())) {
             user.setRole(Role.INSTRUCTOR_PENDING);
-            user.setStatus("pending"); // ✅ المدرس pending
 
         } else {
             throw new RuntimeException("Invalid account type");
@@ -56,7 +63,6 @@ public class UserService {
         // =========================
         // VALIDATION
         // =========================
-
         if ("STUDENT".equalsIgnoreCase(request.getAccountType())) {
 
             if (request.getMajor() == null || request.getMajor().isBlank()) {
@@ -66,8 +72,12 @@ public class UserService {
 
         if ("INSTRUCTOR".equalsIgnoreCase(request.getAccountType())) {
 
-            if (request.getExpertiseField() == null || request.getExpertiseField().isBlank()) {
-                throw new RuntimeException("Expertise field is required for instructors");
+            if (request.getExpertiseFields() == null || request.getExpertiseFields().isEmpty()) {
+                throw new RuntimeException("At least one expertise field is required for instructors");
+            }
+
+            if (request.getExpertiseFields().size() > 5) {
+                throw new RuntimeException("You can select up to 5 expertise fields only");
             }
 
             if (request.getYearsOfExperience() == null || request.getYearsOfExperience() < 0) {
@@ -80,7 +90,7 @@ public class UserService {
         }
 
         // =========================
-        // SET باقي الحقول
+        // SET EXTRA FIELDS
         // =========================
         if ("STUDENT".equalsIgnoreCase(request.getAccountType())) {
             user.setMajor(request.getMajor());
@@ -89,18 +99,35 @@ public class UserService {
         }
 
         if ("INSTRUCTOR".equalsIgnoreCase(request.getAccountType())) {
-            user.setExpertiseField(request.getExpertiseField());
+
+            // ✅ SAFE conversion (بدون crash)
+            List<ExpertiseField> fields = request.getExpertiseFields()
+                    .stream()
+                    .map(f -> {
+                        try {
+                            return ExpertiseField.valueOf(f.toUpperCase());
+                        } catch (IllegalArgumentException e) {
+                            throw new RuntimeException("Invalid expertise field: " + f);
+                        }
+                    })
+                    .toList();
+
+            user.setExpertiseFields(fields);
+
             user.setYearsOfExperience(request.getYearsOfExperience());
             user.setBio(request.getBio());
+            user.setSkills(request.getSkills());
         }
-        // ❌ حذفنا status من الفرونت
 
         User savedUser = userRepository.save(user);
 
         return convertToResponse(savedUser);
     }
 
-    public String login(LoginRequest request) {
+    // =========================
+    // LOGIN
+    // =========================
+    public User login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() ->
@@ -112,9 +139,12 @@ public class UserService {
             throw new RuntimeException("Invalid email or password");
         }
 
-        return "Login successful";
+        return user;
     }
 
+    // =========================
+    // GET PENDING INSTRUCTORS
+    // =========================
     public List<UserResponse> getPendingInstructors() {
         return userRepository.findByRole(Role.INSTRUCTOR_PENDING)
                 .stream()
@@ -122,6 +152,9 @@ public class UserService {
                 .toList();
     }
 
+    // =========================
+    // APPROVE INSTRUCTOR
+    // =========================
     public UserResponse approveInstructor(Long userId) {
 
         User user = userRepository.findById(userId)
@@ -133,17 +166,25 @@ public class UserService {
         }
 
         user.setRole(Role.INSTRUCTOR);
-        user.setStatus("active"); // 🔥 مهم جداً بعد الموافقة
 
         User savedUser = userRepository.save(user);
 
         return convertToResponse(savedUser);
     }
 
-    private UserResponse convertToResponse(User user) {
+    // =========================
+    // CONVERT TO DTO
+    // =========================
+    public UserResponse convertToResponse(User user) {
 
         UserResponse response = new UserResponse();
-
+        response.setCurrentStudents(
+        	    assignmentRepository.findByInstructor(user)
+        	        .stream()
+        	        .filter(InstructorAssignment::isActive)
+        	        .toList()
+        	        .size()
+        	);
         response.setId(user.getId());
         response.setFullName(user.getFullName());
         response.setEmail(user.getEmail());
@@ -151,13 +192,56 @@ public class UserService {
         response.setMajor(user.getMajor());
         response.setSkills(user.getSkills());
         response.setInterests(user.getInterests());
-        response.setExpertiseField(user.getExpertiseField());
+
+        // ✅ expertise fields
+        if (user.getExpertiseFields() != null && !user.getExpertiseFields().isEmpty()) {
+            response.setExpertiseFields(
+                    user.getExpertiseFields()
+                            .stream()
+                            .map(Enum::name)
+                            .toList()
+            );
+        }
+
         response.setYearsOfExperience(user.getYearsOfExperience());
         response.setBio(user.getBio());
-        response.setStatus(user.getStatus());
         response.setCreatedAt(user.getCreatedAt());
         response.setUpdatedAt(user.getUpdatedAt());
 
         return response;
     }
+
+    // =========================
+    // FILTER INSTRUCTORS
+    // =========================
+    public List<UserResponse> getInstructorsByField(ExpertiseField field){
+        return userRepository.findByExpertiseFieldsContaining(field)
+                .stream()
+                .map(this::convertToResponse)
+                .toList();
+    }
+    public List<UserResponse> getAllInstructors(){
+        return userRepository.findByRole(Role.INSTRUCTOR)
+                .stream()
+                .map(this::convertToResponse)
+                .toList();
+    }
+    
+    public List<UserResponse> getTopInstructors(){
+        return userRepository.findByRole(Role.INSTRUCTOR)
+                .stream()
+                .limit(4)
+                .map(this::convertToResponse)
+                .toList();
+    }
+    
+    public int getActiveStudentsCount(User instructor){
+        return (int) assignmentRepository
+                .findByInstructor(instructor)
+                .stream()
+                .filter(InstructorAssignment::isActive)
+                .count();
+    }
+    
+    
 }

@@ -1,8 +1,10 @@
 package com.lama.roadmap.service;
 
 import com.lama.roadmap.model.InstructorAssignment;
+import com.lama.roadmap.model.Message;
 import com.lama.roadmap.model.User;
 import com.lama.roadmap.repository.InstructorAssignmentRepository;
+import com.lama.roadmap.repository.MessageRepository;
 import com.lama.roadmap.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
@@ -14,17 +16,24 @@ public class InstructorAssignmentService {
     private final InstructorAssignmentRepository assignmentRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final MessageRepository messageRepository;
 
-    public InstructorAssignmentService(InstructorAssignmentRepository assignmentRepository,
-                                       UserRepository userRepository,
-                                       NotificationService notificationService) {
+    public InstructorAssignmentService(
+            InstructorAssignmentRepository assignmentRepository,
+            UserRepository userRepository,
+            NotificationService notificationService,
+            MessageRepository messageRepository) {
 
         this.assignmentRepository = assignmentRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
+        this.messageRepository = messageRepository;
     }
 
-    public InstructorAssignment assignInstructor(Long studentId, Long instructorId){
+    // =========================
+    // CREATE REQUEST (PENDING)
+    // =========================
+    public InstructorAssignment createRequest(Long studentId, Long instructorId){
 
         User student = userRepository.findById(studentId)
                 .orElseThrow(() -> new RuntimeException("Student not found"));
@@ -33,26 +42,65 @@ public class InstructorAssignmentService {
                 .orElseThrow(() -> new RuntimeException("Instructor not found"));
 
         InstructorAssignment assignment = new InstructorAssignment();
-
         assignment.setStudent(student);
         assignment.setInstructor(instructor);
 
-        InstructorAssignment savedAssignment = assignmentRepository.save(assignment);
+        // ✅ أهم تعديل
+        assignment.setStatus("PENDING");
+        assignment.setActive(false);
 
-        // إنشاء Notification للطالب
-        notificationService.createNotification(
-                student.getId(),
-                "Instructor Assigned",
-                "You have been assigned to instructor " + instructor.getFullName(),
-                "assignment",
-                savedAssignment.getId()
-        );
-
-        return savedAssignment;
+        return assignmentRepository.save(assignment);
     }
 
-    public List<InstructorAssignment> getInstructorStudents(Long instructorId) {
+    // =========================
+    // APPROVE REQUEST
+    // =========================
+    public InstructorAssignment approveRequest(Long assignmentId){
 
+        InstructorAssignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new RuntimeException("Assignment not found"));
+
+        User instructor = assignment.getInstructor();
+
+        // ✅ 1. check max students
+        int MAX_STUDENTS = 5;
+
+        long currentStudents = assignmentRepository
+                .findByInstructor(instructor)
+                .stream()
+                .filter(InstructorAssignment::isActive)
+                .count();
+
+        if(currentStudents >= MAX_STUDENTS){
+            throw new RuntimeException("Instructor already has maximum students");
+        }
+
+        // ✅ 2. approve
+        assignment.setStatus("APPROVED");
+        assignment.setActive(true);
+
+        return assignmentRepository.save(assignment);
+    }
+
+    // =========================
+    // REJECT REQUEST
+    // =========================
+    public InstructorAssignment rejectRequest(Long assignmentId, String note){
+
+        InstructorAssignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new RuntimeException("Assignment not found"));
+
+        assignment.setStatus("REJECTED");
+        assignment.setActive(false);
+        assignment.setNote(note); // لازم يكون موجود بالموديل
+
+        return assignmentRepository.save(assignment);
+    }
+
+    // =========================
+    // GET DATA
+    // =========================
+    public List<InstructorAssignment> getInstructorStudents(Long instructorId) {
         User instructor = userRepository.findById(instructorId)
                 .orElseThrow(() -> new RuntimeException("Instructor not found"));
 
@@ -60,13 +108,15 @@ public class InstructorAssignmentService {
     }
 
     public List<InstructorAssignment> getStudentInstructor(Long studentId) {
-
         User student = userRepository.findById(studentId)
                 .orElseThrow(() -> new RuntimeException("Student not found"));
 
         return assignmentRepository.findByStudent(student);
     }
 
+    // =========================
+    // DROP ASSIGNMENT
+    // =========================
     public InstructorAssignment dropAssignment(Long assignmentId, String droppedBy) {
 
         InstructorAssignment assignment = assignmentRepository.findById(assignmentId)
@@ -79,27 +129,32 @@ public class InstructorAssignmentService {
         }
 
         assignment.setEndedAt(java.time.LocalDateTime.now());
+        assignment.setActive(false);
 
         InstructorAssignment updated = assignmentRepository.save(assignment);
 
-        // إنشاء Notification للطرف الآخر
-        User receiver;
+        // system message
+        Message systemMessage = new Message();
+        systemMessage.setAssignment(updated);
+        systemMessage.setContent("This conversation has been closed");
+        systemMessage.setType(Message.MessageType.SYSTEM);
 
-        if(droppedBy.equals("instructor")){
-            receiver = assignment.getStudent();
-        } else {
-            receiver = assignment.getInstructor();
-        }
+        messageRepository.save(systemMessage);
 
+        // receiver
+        User receiver = droppedBy.equals("instructor")
+                ? assignment.getStudent()
+                : assignment.getInstructor();
+
+        // 🔔 Notification
         notificationService.createNotification(
                 receiver.getId(),
-                "Assignment Ended",
-                "The mentorship assignment has been ended.",
-                "assignment",
+                "Mentorship ended ⚠️",
+                "The mentorship assignment has been closed.",
+                "INSTRUCTOR",
                 updated.getId()
         );
 
         return updated;
     }
-
 }

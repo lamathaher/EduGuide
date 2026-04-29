@@ -16,6 +16,7 @@ public class QuizController {
     public QuizController(QuizService quizService) {
         this.quizService = quizService;
     }
+    
 
     // GET all quizzes
     @GetMapping
@@ -46,6 +47,23 @@ public class QuizController {
         return quizService.getQuizAttempts(studentId, quizId);
     }
 
+    @GetMapping("/cards")
+    public List<QuizCardDTO> getQuizCards(
+            @RequestParam Long studentId,
+            @RequestParam(required = false) String path,
+            @RequestParam(required = false) String level) {
+
+        return quizService.getQuizCards(studentId, path, level);
+    }
+    
+    @GetMapping("/resume")
+    public ResumeQuizDTO getResume(@RequestParam Long studentId) {
+        return quizService.getResumeQuiz(studentId);
+    }
+    @GetMapping("/recommended")
+    public RecommendedQuizDTO getRecommended(@RequestParam Long studentId) {
+        return quizService.getRecommendedQuiz(studentId);
+    }
     // best score
     @GetMapping("/{quizId}/best-score/{studentId}")
     public int getBestScore(
