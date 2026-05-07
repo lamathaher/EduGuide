@@ -1,5 +1,6 @@
 package com.lama.roadmap.controller;
 
+import com.lama.roadmap.dto.ProgressSummaryResponse;
 import com.lama.roadmap.dto.StepProgressRequest;
 import com.lama.roadmap.model.StepProgress;
 import com.lama.roadmap.service.StepProgressService;
@@ -30,4 +31,18 @@ public class StepProgressController {
 
         return progressService.getStudentProgress(studentId, roadmapId);
     }
+    
+  
+    @GetMapping("/summary/student/{studentId}/roadmap/{roadmapId}")
+    public ProgressSummaryResponse getProgressSummary(
+            @PathVariable Long studentId,
+            @PathVariable Long roadmapId){
+
+        return progressService.getProgressSummary(
+                studentId,
+                roadmapId
+        );
+    }
+   
+
 }

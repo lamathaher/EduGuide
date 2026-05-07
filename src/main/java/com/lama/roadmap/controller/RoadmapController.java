@@ -2,14 +2,12 @@ package com.lama.roadmap.controller;
 
 import com.lama.roadmap.dto.SaveRoadmapRequest;
 import com.lama.roadmap.dto.ChatRequest;
+import com.lama.roadmap.dto.GenerateRoadmapRequest;
 import com.lama.roadmap.dto.RoadmapResponse;
 import com.lama.roadmap.model.Roadmap;
 import com.lama.roadmap.service.RoadmapService;
-
+import com.lama.roadmap.service.ResourceService;
 import jakarta.validation.Valid;
-
-import java.util.Map;
-
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,9 +16,12 @@ import org.springframework.web.bind.annotation.*;
 public class RoadmapController {
 
     private final RoadmapService roadmapService;
+    private final ResourceService resourceService;
 
-    public RoadmapController(RoadmapService roadmapService) {
+    public RoadmapController(RoadmapService roadmapService,
+                             ResourceService resourceService) {
         this.roadmapService = roadmapService;
+        this.resourceService = resourceService;
     }
 
     @PostMapping
@@ -47,31 +48,40 @@ public class RoadmapController {
     public RoadmapResponse updateRoadmap(
             @PathVariable Long roadmapId,
             @Valid @RequestBody SaveRoadmapRequest request) {
-
         return roadmapService.updateRoadmap(roadmapId, request);
     }
 
     @PostMapping("/generate")
-    public RoadmapResponse generateRoadmap(@RequestBody Map<String, String> body) {
-
-        String question = body.get("question");
-        String userId = body.get("userId");
-
-        if (question == null || userId == null) {
-            throw new RuntimeException("Missing question or userId");
+    public RoadmapResponse generateRoadmap(
+            @RequestBody GenerateRoadmapRequest request) {
+        if (request.getUserId() == null || request.getLearningPath() == null) {
+            throw new RuntimeException("Missing required fields");
         }
-
-        return roadmapService.generateRoadmap(question, userId);
+        return roadmapService.generateRoadmap(request);
     }
 
     @PostMapping("/chat")
-    public ResponseEntity<String> chat(@Valid @RequestBody ChatRequest request){
+    public ResponseEntity<String> chat(@RequestBody ChatRequest request) {
 
         String question = request.getMessage();
-        String sessionId = request.getSessionId();
 
+        String sessionId = request.getSessionId();
         if (sessionId == null || sessionId.isBlank()) {
             sessionId = "session-" + java.util.UUID.randomUUID();
+        }
+
+        // 🔥 لو في learningPath يعني هاي الرسالة الأخيرة — أضيفي الـ RAG
+        if (request.getLearningPath() != null
+                && !request.getLearningPath().isBlank()) {
+
+            String resourcesText = resourceService
+                    .getResourcesAsText(request.getLearningPath());
+
+            question = "CONTEXT:\n\n" + resourcesText + "\n\n" + question;
+
+            System.out.println("====== RAG INJECTED IN CHAT ======");
+            System.out.println(resourcesText);
+            System.out.println("==================================");
         }
 
         String response = roadmapService.callFlowise(question, sessionId);
@@ -82,7 +92,6 @@ public class RoadmapController {
     public void setLastOpenedRoadmap(
             @PathVariable Long roadmapId,
             @PathVariable Long userId) {
-
         roadmapService.setLastOpenedRoadmap(roadmapId, userId);
     }
 }

@@ -9,6 +9,8 @@ public class ChatRequest {
 
     private String sessionId;
 
+    private String learningPath; // ← اختياري، بيُبعث بس في الرسالة الأخيرة
+
     public String getMessage() {
         return message;
     }
@@ -23,5 +25,13 @@ public class ChatRequest {
 
     public void setSessionId(String sessionId) {
         this.sessionId = sessionId;
+    }
+
+    public String getLearningPath() {
+        return learningPath;
+    }
+
+    public void setLearningPath(String learningPath) {
+        this.learningPath = learningPath;
     }
 }

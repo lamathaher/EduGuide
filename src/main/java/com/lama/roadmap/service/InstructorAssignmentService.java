@@ -45,9 +45,8 @@ public class InstructorAssignmentService {
         assignment.setStudent(student);
         assignment.setInstructor(instructor);
 
-        // ✅ أهم تعديل
+        // 🔥 فقط status
         assignment.setStatus("PENDING");
-        assignment.setActive(false);
 
         return assignmentRepository.save(assignment);
     }
@@ -62,7 +61,6 @@ public class InstructorAssignmentService {
 
         User instructor = assignment.getInstructor();
 
-        // ✅ 1. check max students
         int MAX_STUDENTS = 5;
 
         long currentStudents = assignmentRepository
@@ -75,9 +73,8 @@ public class InstructorAssignmentService {
             throw new RuntimeException("Instructor already has maximum students");
         }
 
-        // ✅ 2. approve
+        // 🔥 فقط status (هو بيفعل isActive لحاله)
         assignment.setStatus("APPROVED");
-        assignment.setActive(true);
 
         return assignmentRepository.save(assignment);
     }
@@ -91,8 +88,7 @@ public class InstructorAssignmentService {
                 .orElseThrow(() -> new RuntimeException("Assignment not found"));
 
         assignment.setStatus("REJECTED");
-        assignment.setActive(false);
-        assignment.setNote(note); // لازم يكون موجود بالموديل
+        assignment.setNote(note);
 
         return assignmentRepository.save(assignment);
     }
@@ -129,7 +125,6 @@ public class InstructorAssignmentService {
         }
 
         assignment.setEndedAt(java.time.LocalDateTime.now());
-        assignment.setActive(false);
 
         InstructorAssignment updated = assignmentRepository.save(assignment);
 
@@ -146,7 +141,6 @@ public class InstructorAssignmentService {
                 ? assignment.getStudent()
                 : assignment.getInstructor();
 
-        // 🔔 Notification
         notificationService.createNotification(
                 receiver.getId(),
                 "Mentorship ended ⚠️",

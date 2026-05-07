@@ -4,6 +4,7 @@ import com.lama.roadmap.dto.StepProgressRequest;
 import com.lama.roadmap.model.*;
 import com.lama.roadmap.repository.*;
 import org.springframework.stereotype.Service;
+import com.lama.roadmap.dto.ProgressSummaryResponse;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -83,4 +84,40 @@ public class StepProgressService {
 
         return progressRepository.findByStudentAndRoadmap(student, roadmap);
     }
+    
+   
+    public ProgressSummaryResponse getProgressSummary(
+            Long studentId,
+            Long roadmapId){
+
+        User student = userRepository.findById(studentId)
+                .orElseThrow(() -> new RuntimeException("Student not found"));
+
+        Roadmap roadmap = roadmapRepository.findById(roadmapId)
+                .orElseThrow(() -> new RuntimeException("Roadmap not found"));
+
+        List<StepProgress> completedSteps =
+                progressRepository.findByStudentAndRoadmap(student, roadmap);
+
+        int completed = completedSteps.size();
+
+        // مؤقتًا نحط total ثابت
+        // بعدين ممكن تجيبيه من roadmap parsing
+        int total = 10;
+
+        double percentage = 0;
+
+        if(total > 0){
+            percentage = ((double) completed / total) * 100;
+        }
+
+        return new ProgressSummaryResponse(
+                completed,
+                total,
+                Math.round(percentage)
+        );
+    }
+   
+
+
 }

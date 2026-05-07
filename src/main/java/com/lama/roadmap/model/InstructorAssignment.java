@@ -19,76 +19,58 @@ public class InstructorAssignment {
     @JoinColumn(name = "instructor_id")
     private User instructor;
 
-    // active | dropped_by_instructor | dropped_by_student
+    // PENDING | APPROVED | dropped_by_instructor | dropped_by_student
     private String status;
 
     @Column(name = "is_active")
-    private Boolean isActive = true; // ✅ مهم
+    private Boolean isActive;
 
     private LocalDateTime assignedAt;
     private LocalDateTime endedAt;
     private LocalDateTime updatedAt;
 
-    
-    public Boolean getIsActive() {
-		return isActive;
-	}
+    private String note;
 
-	public void setIsActive(Boolean isActive) {
-		this.isActive = isActive;
-	}
-
-	public String getNote() {
-		return note;
-	}
-
-	public void setNote(String note) {
-		this.note = note;
-	}
-
-	public void setId(Long id) {
-		this.id = id;
-	}
-
-	public void setAssignedAt(LocalDateTime assignedAt) {
-		this.assignedAt = assignedAt;
-	}
-
-	public void setUpdatedAt(LocalDateTime updatedAt) {
-		this.updatedAt = updatedAt;
-	}
-
-	private String note;
     public InstructorAssignment() {}
 
+    // =========================
+    // LIFECYCLE
+    // =========================
     @PrePersist
     public void prePersist(){
         assignedAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
 
-        // ❌ كان active
-        // status = "active";
-
-        // ✅ خليها PENDING
         status = "PENDING";
-
         isActive = false; // لسا ما انقبل
     }
 
     @PreUpdate
     public void preUpdate(){
         updatedAt = LocalDateTime.now();
-
-        // ✅ sync بين status و isActive
-        if(status != null && !status.equals("active")){
-            isActive = false;
-        }
+        // ❌ شلنا أي logic يغير isActive
     }
 
-    // ===== getters & setters =====
+    // =========================
+    // BUSINESS LOGIC (SINGLE SOURCE OF TRUTH)
+    // =========================
+    public void setStatus(String status) {
+        this.status = status;
+
+        // 🔥 المصدر الوحيد لتحديد active
+        this.isActive = "APPROVED".equals(status);
+    }
+
+    // =========================
+    // GETTERS & SETTERS
+    // =========================
 
     public Long getId() {
         return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
     }
 
     public User getStudent() {
@@ -110,27 +92,18 @@ public class InstructorAssignment {
     public String getStatus() {
         return status;
     }
-    public void setStatus(String status) {
-        this.status = status;
 
-        // ✅ بس لما يكون APPROVED يصير active
-        if("APPROVED".equals(status)){
-            this.isActive = true;
-        } else {
-            this.isActive = false;
-        }
-    }
-
+    // ❗ ما بنحط setActive لحاله → ممنوع تضارب
     public Boolean isActive() {
         return isActive;
     }
 
-    public void setActive(Boolean active) {
-        isActive = active;
-    }
-
     public LocalDateTime getAssignedAt() {
         return assignedAt;
+    }
+
+    public void setAssignedAt(LocalDateTime assignedAt) {
+        this.assignedAt = assignedAt;
     }
 
     public LocalDateTime getEndedAt() {
@@ -143,5 +116,17 @@ public class InstructorAssignment {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public String getNote() {
+        return note;
+    }
+
+    public void setNote(String note) {
+        this.note = note;
     }
 }

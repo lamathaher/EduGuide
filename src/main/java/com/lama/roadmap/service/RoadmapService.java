@@ -1,4 +1,4 @@
-package com.lama.roadmap.service;
+/*package com.lama.roadmap.service;
 
 import com.lama.roadmap.dto.RoadmapResponse;
 import com.lama.roadmap.dto.SaveRoadmapRequest;
@@ -249,6 +249,321 @@ public class RoadmapService {
     // CONTINUE LEARNING
     // =========================
     public void setLastOpenedRoadmap(Long roadmapId, Long userId){
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        user.setLastOpenedRoadmapId(roadmapId);
+        userRepository.save(user);
+    }
+}  */
+package com.lama.roadmap.service;
+
+import com.lama.roadmap.dto.GenerateRoadmapRequest;
+import com.lama.roadmap.dto.RoadmapResponse;
+import com.lama.roadmap.dto.SaveRoadmapRequest;
+import com.lama.roadmap.model.Roadmap;
+import com.lama.roadmap.model.User;
+import com.lama.roadmap.repository.RoadmapRepository;
+import com.lama.roadmap.repository.UserRepository;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import com.lama.roadmap.service.ResourceService;
+
+import java.util.HashMap;
+import java.util.Map;
+import org.springframework.http.*;
+
+@Service
+public class RoadmapService {
+
+    private final RoadmapRepository roadmapRepository;
+    private final UserRepository userRepository;
+    private final NotificationService notificationService;
+    private final ResourceService resourceService;
+
+    public RoadmapService(RoadmapRepository roadmapRepository,
+            UserRepository userRepository,
+            NotificationService notificationService,
+            ResourceService resourceService) {
+
+this.roadmapRepository = roadmapRepository;
+this.userRepository = userRepository;
+this.notificationService = notificationService;
+this.resourceService = resourceService;
+}
+
+    // =========================
+    // CONVERT TO DTO
+    // =========================
+    private RoadmapResponse convertToResponse(Roadmap roadmap) {
+
+        RoadmapResponse response = new RoadmapResponse();
+
+        response.setId(roadmap.getId());
+        response.setUserId(roadmap.getUser().getId());
+        response.setLearningPath(roadmap.getLearningPath());
+        response.setRoadmapLength(roadmap.getRoadmapLength());
+        response.setLearningStyle(roadmap.getLearningStyle());
+        response.setWeeklyStudyTime(roadmap.getWeeklyStudyTime());
+        response.setMainGoal(roadmap.getMainGoal());
+        response.setConfidenceLevel(roadmap.getConfidenceLevel());
+        response.setRoadmapContent(roadmap.getRoadmapContent());
+        response.setCreatedAt(roadmap.getCreatedAt());
+
+        return response;
+    }
+
+    // =========================
+    // SAVE ROADMAP
+    // =========================
+    public Roadmap saveRoadmap(SaveRoadmapRequest request) {
+
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        Roadmap roadmap = new Roadmap();
+
+        roadmap.setUser(user);
+        roadmap.setLearningPath(request.getLearningPath());
+        roadmap.setRoadmapLength(request.getRoadmapLength());
+        roadmap.setLearningStyle(request.getLearningStyle());
+        roadmap.setWeeklyStudyTime(request.getWeeklyStudyTime());
+        roadmap.setMainGoal(request.getMainGoal());
+        roadmap.setConfidenceLevel(request.getConfidenceLevel());
+        roadmap.setRoadmapContent(request.getRoadmapContent());
+
+        Roadmap saved = roadmapRepository.save(roadmap);
+
+        notificationService.createNotification(
+                user.getId(),
+                "Your roadmap is ready 🎯",
+                "Start learning now and track your progress!",
+                "ROADMAP",
+                saved.getId()
+        );
+
+        return saved;
+    }
+
+    // =========================
+    // BUILD QUESTION FOR AI
+    // =========================
+    private String buildPersonalizedQuestion(
+            String learningPath,
+            String roadmapLength,
+            String learningStyle,
+            String weeklyStudyTime,
+            String mainGoal,
+            String confidenceLevel) {
+
+        return String.format(
+                "generate roadmap\n\n" +
+                "USER ANSWERS:\n" +
+                "- Learning Path: %s\n" +
+                "- Roadmap Length: %s\n" +
+                "- Learning Style: %s\n" +
+                "- Weekly Study Time: %s\n" +
+                "- Main Goal: %s\n" +
+                "- Confidence Level: %s\n\n" +
+                "YOU MUST apply ALL personalization rules strictly based on these answers.",
+                learningPath, roadmapLength, learningStyle,
+                weeklyStudyTime, mainGoal, confidenceLevel);
+    }
+
+    // =========================
+    // GET USER ROADMAPS
+    // =========================
+    public java.util.List<RoadmapResponse> getUserRoadmaps(Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return roadmapRepository.findByUser(user)
+                .stream()
+                .map(this::convertToResponse)
+                .toList();
+    }
+
+    // =========================
+    // GET BY ID
+    // =========================
+    public RoadmapResponse getRoadmapById(Long roadmapId) {
+
+        Roadmap roadmap = roadmapRepository.findById(roadmapId)
+                .orElseThrow(() -> new RuntimeException("Roadmap not found"));
+
+        return convertToResponse(roadmap);
+    }
+
+    // =========================
+    // DELETE
+    // =========================
+    public void deleteRoadmap(Long roadmapId) {
+
+        Roadmap roadmap = roadmapRepository.findById(roadmapId)
+                .orElseThrow(() -> new RuntimeException("Roadmap not found"));
+
+        roadmapRepository.delete(roadmap);
+    }
+
+    // =========================
+    // UPDATE
+    // =========================
+    public RoadmapResponse updateRoadmap(Long roadmapId, SaveRoadmapRequest request) {
+
+        Roadmap roadmap = roadmapRepository.findById(roadmapId)
+                .orElseThrow(() -> new RuntimeException("Roadmap not found"));
+
+        roadmap.setLearningPath(request.getLearningPath());
+        roadmap.setRoadmapLength(request.getRoadmapLength());
+        roadmap.setLearningStyle(request.getLearningStyle());
+        roadmap.setWeeklyStudyTime(request.getWeeklyStudyTime());
+        roadmap.setMainGoal(request.getMainGoal());
+        roadmap.setConfidenceLevel(request.getConfidenceLevel());
+        roadmap.setRoadmapContent(request.getRoadmapContent());
+
+        Roadmap updated = roadmapRepository.save(roadmap);
+
+        notificationService.createNotification(
+                updated.getUser().getId(),
+                "Roadmap updated 🔄",
+                "Your roadmap has been updated successfully!",
+                "ROADMAP",
+                updated.getId()
+        );
+
+        return convertToResponse(updated);
+    }
+
+    // =========================
+    // GENERATE ROADMAP (AI)
+    // =========================
+    public RoadmapResponse generateRoadmap(GenerateRoadmapRequest request) {
+
+        User user = userRepository.findById(Long.parseLong(request.getUserId()))
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String personalizedQuestion = buildPersonalizedQuestion(
+                request.getLearningPath(),
+                request.getRoadmapLength(),
+                request.getLearningStyle(),
+                request.getWeeklyStudyTime(),
+                request.getMainGoal(),
+                request.getConfidenceLevel()
+        );
+     // 🔥 TEST RAG
+        String test = resourceService.getResourcesAsText("Python");
+        System.out.println("====== RAG TEST ======");
+        System.out.println(test);
+        System.out.println("======================");
+
+        // session فريد كل مرة عشان ما يتأثر بمحادثات سابقة
+        String sessionId = "gen-" + request.getUserId() + "-" + System.currentTimeMillis();
+
+     // 🔥 جلب المصادر من الإكسل (RAG)
+     String resourcesText = resourceService.getResourcesAsText(request.getLearningPath());
+
+     // 🔥 دمج السؤال + المصادر
+    /* String finalPrompt =
+    	        personalizedQuestion +
+    	        "\n\nAVAILABLE RESOURCES:\n\n" +
+    	        resourcesText +
+    	        "\nIMPORTANT:\n" +
+    	        "- Match roadmap steps with Step Name or Topic\n" +
+    	        "- Use matching resources FIRST\n" +
+    	        "- Do NOT ignore matching resources\n" +
+    	        "- If no match exists, use trusted sources only\n";
+*/
+     
+     String finalPrompt =
+    		    "CONTEXT:\n\n" +
+    		    resourcesText +
+    		    "\n\n" +
+    		    personalizedQuestion;
+     // 🔥 إرسال للـ AI
+     String aiText = callFlowise(finalPrompt, sessionId);
+
+
+     // باقي الكود مثل ما هو 👇
+     Roadmap roadmap = new Roadmap();
+     roadmap.setUser(user);
+     roadmap.setLearningPath(request.getLearningPath());
+     roadmap.setRoadmapLength(request.getRoadmapLength());
+     roadmap.setLearningStyle(request.getLearningStyle());
+     roadmap.setWeeklyStudyTime(request.getWeeklyStudyTime());
+     roadmap.setMainGoal(request.getMainGoal());
+     roadmap.setConfidenceLevel(request.getConfidenceLevel());
+     roadmap.setRoadmapContent(aiText);
+
+     Roadmap saved = roadmapRepository.save(roadmap);
+
+        notificationService.createNotification(
+                user.getId(),
+                "AI Roadmap Generated 🤖",
+                "Your personalized roadmap is ready!",
+                "ROADMAP",
+                saved.getId()
+        );
+
+        return convertToResponse(saved);
+    }
+
+    // =========================
+    // CALL AI
+    // =========================
+    public String callFlowise(String question, String sessionId) {
+
+        // 🔥 الفلو الجديد تبعك
+        String url = "http://localhost:3000/api/v1/prediction/1422b0af-dab0-400f-ba77-2be445820e99";
+
+        RestTemplate restTemplate = new RestTemplate();
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        Map<String, Object> body = new HashMap<>();
+        body.put("question", question);
+
+        Map<String, String> config = new HashMap<>();
+        config.put("sessionId", sessionId);
+
+        body.put("overrideConfig", config);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(body, headers);
+
+        try {
+            ResponseEntity<Map> response =
+                    restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
+
+            Map<String, Object> responseBody = response.getBody();
+
+            if (responseBody == null) {
+                throw new RuntimeException("❌ Empty response from Flowise");
+            }
+
+            if (responseBody.containsKey("text")) {
+                return (String) responseBody.get("text");
+            }
+
+            if (responseBody.containsKey("answer")) {
+                return (String) responseBody.get("answer");
+            }
+
+            if (responseBody.containsKey("result")) {
+                return (String) responseBody.get("result");
+            }
+
+            throw new RuntimeException("❌ Unknown response format: " + responseBody);
+
+        } catch (Exception e) {
+            throw new RuntimeException("🔥 Flowise call failed: " + e.getMessage());
+        }
+    }
+    // =========================
+    // CONTINUE LEARNING
+    // =========================
+    public void setLastOpenedRoadmap(Long roadmapId, Long userId) {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
