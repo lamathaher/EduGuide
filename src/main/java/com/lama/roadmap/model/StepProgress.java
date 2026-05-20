@@ -7,101 +7,106 @@ import java.time.LocalDateTime;
 @Table(name = "step_progress")
 public class StepProgress {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
 
-    @ManyToOne
-    @JoinColumn(name="roadmap_id")
-    private Roadmap roadmap;
+@Id
+@GeneratedValue(strategy = GenerationType.IDENTITY)
+private Long id;
 
-    @ManyToOne
-    @JoinColumn(name="student_id")
-    private User student;
+@ManyToOne
+@JoinColumn(name="roadmap_id")
+private Roadmap roadmap;
 
-    private String phaseTitle;
+@ManyToOne
+@JoinColumn(name="student_id")
+private User student;
 
-    private String stepTitle;
+private String phaseTitle;
 
-    private String status; // completed
+private String stepTitle;
 
-    private LocalDateTime createdAt;
+// ✅ بدل String
+@Enumerated(EnumType.STRING)
+private StepStatus status;
 
-    private LocalDateTime updatedAt;
+private LocalDateTime createdAt;
 
-    @PrePersist
-    protected void onCreate(){
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
+private LocalDateTime updatedAt;
 
-    @PreUpdate
-    protected void onUpdate(){
-        updatedAt = LocalDateTime.now();
-    }
+@PrePersist
+protected void onCreate(){
+    createdAt = LocalDateTime.now();
+    updatedAt = LocalDateTime.now();
+}
 
-	public Long getId() {
-		return id;
-	}
+@PreUpdate
+protected void onUpdate(){
+    updatedAt = LocalDateTime.now();
+}
 
-	public void setId(Long id) {
-		this.id = id;
-	}
+public Long getId() {
+    return id;
+}
 
-	public Roadmap getRoadmap() {
-		return roadmap;
-	}
+public void setId(Long id) {
+    this.id = id;
+}
 
-	public void setRoadmap(Roadmap roadmap) {
-		this.roadmap = roadmap;
-	}
+public Roadmap getRoadmap() {
+    return roadmap;
+}
 
-	public User getStudent() {
-		return student;
-	}
+public void setRoadmap(Roadmap roadmap) {
+    this.roadmap = roadmap;
+}
 
-	public void setStudent(User student) {
-		this.student = student;
-	}
+public User getStudent() {
+    return student;
+}
 
-	public String getPhaseTitle() {
-		return phaseTitle;
-	}
+public void setStudent(User student) {
+    this.student = student;
+}
 
-	public void setPhaseTitle(String phaseTitle) {
-		this.phaseTitle = phaseTitle;
-	}
+public String getPhaseTitle() {
+    return phaseTitle;
+}
 
-	public String getStepTitle() {
-		return stepTitle;
-	}
+public void setPhaseTitle(String phaseTitle) {
+    this.phaseTitle = phaseTitle;
+}
 
-	public void setStepTitle(String stepTitle) {
-		this.stepTitle = stepTitle;
-	}
+public String getStepTitle() {
+    return stepTitle;
+}
 
-	public String getStatus() {
-		return status;
-	}
+public void setStepTitle(String stepTitle) {
+    this.stepTitle = stepTitle;
+}
 
-	public void setStatus(String status) {
-		this.status = status;
-	}
+// ✅ Getter + Setter لل Enum
+public StepStatus getStatus() {
+    return status;
+}
 
-	public LocalDateTime getCreatedAt() {
-		return createdAt;
-	}
+public void setStatus(StepStatus status) {
+    this.status = status;
+}
 
-	public void setCreatedAt(LocalDateTime createdAt) {
-		this.createdAt = createdAt;
-	}
+public LocalDateTime getCreatedAt() {
+    return createdAt;
+}
 
-	public LocalDateTime getUpdatedAt() {
-		return updatedAt;
-	}
+public void setCreatedAt(LocalDateTime createdAt) {
+    this.createdAt = createdAt;
+}
 
-	public void setUpdatedAt(LocalDateTime updatedAt) {
-		this.updatedAt = updatedAt;
-	}
+public LocalDateTime getUpdatedAt() {
+    return updatedAt;
+}
+
+public void setUpdatedAt(LocalDateTime updatedAt) {
+    this.updatedAt = updatedAt;
+}
+
 
 }

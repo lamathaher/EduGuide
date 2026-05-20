@@ -93,4 +93,16 @@ public class NotificationService {
 
         notificationRepository.saveAll(notifications);
     }
+    
+    public List<Notification> getAllNotifications(){
+
+        return notificationRepository
+                .findAll()
+                .stream()
+                .sorted((a, b) ->
+                        b.getCreatedAt()
+                         .compareTo(a.getCreatedAt()))
+                .limit(20)
+                .toList();
+    }
 }

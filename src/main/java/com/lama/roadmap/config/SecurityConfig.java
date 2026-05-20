@@ -52,7 +52,8 @@ public class SecurityConfig {
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
                 .allowedOrigins(
-                	    "http://localhost:5173",       // React dev
+                	    "http://localhost:5173",
+                	    "http://localhost:5174",       // React dev
                 	    "http://localhost:3000",       // لو في dev server ثاني
                 	    "https://coeducational-xochitl-branchiform.ngrok-free.dev"  // ngrok
                 	)                .allowedMethods("*")

@@ -11,6 +11,7 @@ public class UserResponse {
     private String email;
     private Role role;
     private String major;
+    private String accountType;
 
     // ✅ تم التعديل هون
     private List<String> skills;
@@ -65,7 +66,13 @@ public class UserResponse {
         this.email = email;
     }
 
-    public Role getRole() {
+    public String getAccountType() {
+		return accountType;
+	}
+	public void setAccountType(String accountType) {
+		this.accountType = accountType;
+	}
+	public Role getRole() {
         return role;
     }
 

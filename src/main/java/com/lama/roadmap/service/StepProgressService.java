@@ -13,111 +13,129 @@ import java.util.Optional;
 @Service
 public class StepProgressService {
 
-    private final StepProgressRepository progressRepository;
-    private final UserRepository userRepository;
-    private final RoadmapRepository roadmapRepository;
-    private final NotificationService notificationService; // ✅ مهم
 
-    public StepProgressService(
-            StepProgressRepository progressRepository,
-            UserRepository userRepository,
-            RoadmapRepository roadmapRepository,
-            NotificationService notificationService){
+private final StepProgressRepository progressRepository;
+private final UserRepository userRepository;
+private final RoadmapRepository roadmapRepository;
+private final NotificationService notificationService; // ✅ مهم
 
-        this.progressRepository = progressRepository;
-        this.userRepository = userRepository;
-        this.roadmapRepository = roadmapRepository;
-        this.notificationService = notificationService;
+public StepProgressService(
+        StepProgressRepository progressRepository,
+        UserRepository userRepository,
+        RoadmapRepository roadmapRepository,
+        NotificationService notificationService){
+
+    this.progressRepository = progressRepository;
+    this.userRepository = userRepository;
+    this.roadmapRepository = roadmapRepository;
+    this.notificationService = notificationService;
+}
+
+public StepProgress markStepCompleted(StepProgressRequest request){
+
+    User student = userRepository.findById(request.getStudentId())
+            .orElseThrow(() -> new RuntimeException("Student not found"));
+
+    Roadmap roadmap = roadmapRepository.findById(request.getRoadmapId())
+            .orElseThrow(() -> new RuntimeException("Roadmap not found"));
+
+    Optional<StepProgress> existing =
+            progressRepository.findByStudentAndRoadmapAndStepTitle(
+                    student,
+                    roadmap,
+                    request.getStepTitle()
+            );
+
+    if(existing.isPresent()){
+        return existing.get();
     }
 
-    public StepProgress markStepCompleted(StepProgressRequest request){
+    StepProgress progress = new StepProgress();
+    progress.setStudent(student);
+    progress.setRoadmap(roadmap);
+    progress.setPhaseTitle(request.getPhaseTitle());
+    progress.setStepTitle(request.getStepTitle());
 
-        User student = userRepository.findById(request.getStudentId())
-                .orElseThrow(() -> new RuntimeException("Student not found"));
+    // ✅ بدل String
+    progress.setStatus(StepStatus.COMPLETED);
 
-        Roadmap roadmap = roadmapRepository.findById(request.getRoadmapId())
-                .orElseThrow(() -> new RuntimeException("Roadmap not found"));
+    StepProgress saved = progressRepository.save(progress);
 
-        Optional<StepProgress> existing =
-                progressRepository.findByStudentAndRoadmapAndStepTitle(
-                        student,
-                        roadmap,
-                        request.getStepTitle()
-                );
+    // ✅ تحديث النشاط (مهم للـ reminder)
+    student.setLastActivityAt(LocalDateTime.now());
+    userRepository.save(student);
 
-        if(existing.isPresent()){
-            return existing.get();
-        }
+    // 🔔 إشعار تقدم
+    notificationService.createNotification(
+            student.getId(),
+            "Nice progress 📈",
+            "You completed: " + request.getStepTitle(),
+            "PROGRESS",
+            roadmap.getId()
+    );
 
-        StepProgress progress = new StepProgress();
-        progress.setStudent(student);
-        progress.setRoadmap(roadmap);
-        progress.setPhaseTitle(request.getPhaseTitle());
-        progress.setStepTitle(request.getStepTitle());
-        progress.setStatus("completed");
+    return saved;
+}
 
-        StepProgress saved = progressRepository.save(progress);
+public List<StepProgress> getStudentProgress(Long studentId, Long roadmapId){
 
-        // ✅ تحديث النشاط (مهم للـ reminder)
-        student.setLastActivityAt(LocalDateTime.now());
-        userRepository.save(student);
+    User student = userRepository.findById(studentId)
+            .orElseThrow(() -> new RuntimeException("Student not found"));
 
-        // 🔔 إشعار تقدم
-        notificationService.createNotification(
-                student.getId(),
-                "Nice progress 📈",
-                "You completed: " + request.getStepTitle(),
-                "PROGRESS",
-                roadmap.getId()
-        );
+    Roadmap roadmap = roadmapRepository.findById(roadmapId)
+            .orElseThrow(() -> new RuntimeException("Roadmap not found"));
 
-        return saved;
+    return progressRepository.findByStudentAndRoadmap(student, roadmap);
+}
+
+
+public ProgressSummaryResponse getProgressSummary(
+        Long studentId,
+        Long roadmapId){
+
+    User student = userRepository.findById(studentId)
+            .orElseThrow(() -> new RuntimeException("Student not found"));
+
+    Roadmap roadmap = roadmapRepository.findById(roadmapId)
+            .orElseThrow(() -> new RuntimeException("Roadmap not found"));
+
+    List<StepProgress> completedSteps =
+            progressRepository.findByStudentAndRoadmap(student, roadmap);
+
+    int completed = completedSteps.size();
+
+    // مؤقتًا نحط total ثابت
+    // بعدين ممكن تجيبيه من roadmap parsing
+    int total = 10;
+
+    double percentage = 0;
+
+    if(total > 0){
+        percentage = ((double) completed / total) * 100;
     }
-    
-    public List<StepProgress> getStudentProgress(Long studentId, Long roadmapId){
 
-        User student = userRepository.findById(studentId)
-                .orElseThrow(() -> new RuntimeException("Student not found"));
+    return new ProgressSummaryResponse(
+            completed,
+            total,
+            Math.round(percentage)
+    );
+}
 
-        Roadmap roadmap = roadmapRepository.findById(roadmapId)
-                .orElseThrow(() -> new RuntimeException("Roadmap not found"));
+public ProgressSummaryResponse getLastOpenedRoadmapProgress(Long studentId){
 
-        return progressRepository.findByStudentAndRoadmap(student, roadmap);
+    User student = userRepository.findById(studentId)
+            .orElseThrow(() -> new RuntimeException("Student not found"));
+
+    Long roadmapId = student.getLastOpenedRoadmapId();
+
+    // إذا ما فتح أي roadmap قبل
+    if(roadmapId == null){
+        return new ProgressSummaryResponse(0, 0, 0);
     }
-    
-   
-    public ProgressSummaryResponse getProgressSummary(
-            Long studentId,
-            Long roadmapId){
 
-        User student = userRepository.findById(studentId)
-                .orElseThrow(() -> new RuntimeException("Student not found"));
-
-        Roadmap roadmap = roadmapRepository.findById(roadmapId)
-                .orElseThrow(() -> new RuntimeException("Roadmap not found"));
-
-        List<StepProgress> completedSteps =
-                progressRepository.findByStudentAndRoadmap(student, roadmap);
-
-        int completed = completedSteps.size();
-
-        // مؤقتًا نحط total ثابت
-        // بعدين ممكن تجيبيه من roadmap parsing
-        int total = 10;
-
-        double percentage = 0;
-
-        if(total > 0){
-            percentage = ((double) completed / total) * 100;
-        }
-
-        return new ProgressSummaryResponse(
-                completed,
-                total,
-                Math.round(percentage)
-        );
-    }
-   
+    // استخدم الدالة الموجودة أصلاً
+    return getProgressSummary(studentId, roadmapId);
+}
 
 
 }

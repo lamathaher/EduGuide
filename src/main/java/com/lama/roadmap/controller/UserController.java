@@ -31,6 +31,7 @@ public class UserController {
     public UserController(UserService userService,
                           UserRepository userRepository,
                           RoadmapService roadmapService) {
+
         this.userService = userService;
         this.userRepository = userRepository;
         this.roadmapService = roadmapService;
@@ -40,34 +41,42 @@ public class UserController {
     // CREATE USER
     // =========================
     @PostMapping
-    public ResponseEntity<Map<String, Object>> createUser(@Valid @RequestBody UserRequest request) {
+    public ResponseEntity<Map<String, Object>> createUser(
+            @Valid @RequestBody UserRequest request) {
 
         UserResponse user = userService.createUser(request);
 
         Map<String, Object> response = new HashMap<>();
+
         response.put("message", "User created successfully");
         response.put("id", user.getId());
         response.put("fullName", user.getFullName());
         response.put("email", user.getEmail());
         response.put("role", user.getRole());
+        response.put("accountType", user.getAccountType());
 
         return ResponseEntity.ok(response);
     }
 
     // =========================
-    // LOGIN (FIXED 🔥)
+    // LOGIN
     // =========================
     @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<Map<String, Object>> login(
+            @Valid @RequestBody LoginRequest request) {
 
-        User user = userService.login(request);
+        UserResponse user = userService.login(request);
 
         Map<String, Object> response = new HashMap<>();
+
         response.put("message", "Login successful");
         response.put("id", user.getId());
-        response.put("fullName", user.getFullName()); // 🔥 ا
+        response.put("fullName", user.getFullName());
         response.put("email", user.getEmail());
         response.put("role", user.getRole());
+
+        // ✅ NEW
+        response.put("accountType", user.getAccountType());
 
         return ResponseEntity.ok(response);
     }
@@ -89,7 +98,10 @@ public class UserController {
 
         return roadmapService.getRoadmapById(roadmapId);
     }
-    
+
+    // =========================
+    // GET INSTRUCTORS BY FIELD
+    // =========================
     @GetMapping("/instructors")
     public List<UserResponse> getByField(@RequestParam String field){
 
@@ -97,16 +109,20 @@ public class UserController {
 
         return userService.getInstructorsByField(f);
     }
-    
+
+    // =========================
+    // TOP INSTRUCTORS
+    // =========================
     @GetMapping("/instructors/top")
     public List<UserResponse> getTopInstructors(){
         return userService.getTopInstructors();
     }
-    
+
+    // =========================
+    // ALL INSTRUCTORS
+    // =========================
     @GetMapping("/instructors/all")
     public List<UserResponse> getAllInstructors(){
         return userService.getAllInstructors();
     }
-    
-    
 }

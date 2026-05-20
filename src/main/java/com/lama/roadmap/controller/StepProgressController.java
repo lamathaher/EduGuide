@@ -43,6 +43,13 @@ public class StepProgressController {
                 roadmapId
         );
     }
+    
+    @GetMapping("/last-opened/{studentId}")
+    public ProgressSummaryResponse getLastOpenedRoadmapProgress(
+            @PathVariable Long studentId){
+
+        return progressService.getLastOpenedRoadmapProgress(studentId);
+    }
    
 
 }

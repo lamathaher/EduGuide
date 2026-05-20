@@ -5,5 +5,7 @@ public enum Role {
     USER,
     INSTRUCTOR_PENDING,
     INSTRUCTOR,
-    ADMIN
+    ADMIN,
+    REJECTED
+    
 }

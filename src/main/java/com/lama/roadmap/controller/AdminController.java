@@ -8,7 +8,7 @@ import com.lama.roadmap.service.InstructorAssignmentService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+import com.lama.roadmap.dto.AdminStatisticsResponse;
 @RestController
 @RequestMapping("/api/admin")
 public class AdminController {
@@ -34,6 +34,10 @@ public class AdminController {
     public UserResponse approveInstructor(@PathVariable Long id) {
         return userService.approveInstructor(id);
     }
+    @PutMapping("/users/{id}/reject")
+    public UserResponse rejectInstructor(@PathVariable Long id) {
+        return userService.rejectInstructor(id);
+    }
 
     // =========================
     // ASSIGNMENT APPROVAL 🔥
@@ -52,5 +56,15 @@ public class AdminController {
         
     }
     
+    @GetMapping("/stats")
+    public AdminStatisticsResponse getAdminStatistics() {
+        return userService.getAdminStatistics();
+    }
+    
+    
+    @GetMapping("/pending-assignments")
+    public List<InstructorAssignment> getPendingAssignments(){
+        return assignmentService.getPendingAssignments();
+    }
     
 }

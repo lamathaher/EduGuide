@@ -269,9 +269,14 @@ import com.lama.roadmap.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import com.lama.roadmap.service.ResourceService;
-
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import com.lama.roadmap.dto.RoadmapAnalyticsResponse;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.http.*;
 
 @Service
@@ -281,6 +286,7 @@ public class RoadmapService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final ResourceService resourceService;
+    
 
     public RoadmapService(RoadmapRepository roadmapRepository,
             UserRepository userRepository,
@@ -312,6 +318,63 @@ this.resourceService = resourceService;
         response.setCreatedAt(roadmap.getCreatedAt());
 
         return response;
+        
+        
+    }
+    
+    public RoadmapAnalyticsResponse getRoadmapAnalytics() {
+
+        List<Roadmap> roadmaps = roadmapRepository.findAll();
+
+        long totalRoadmaps = roadmaps.size();
+
+        LocalDateTime todayStart =
+                LocalDate.now().atStartOfDay();
+
+        LocalDateTime weekStart =
+                LocalDate.now()
+                        .minusDays(7)
+                        .atStartOfDay();
+
+        long roadmapsToday = roadmaps.stream()
+                .filter(r -> r.getCreatedAt() != null &&
+                        r.getCreatedAt().isAfter(todayStart))
+                .count();
+
+        long roadmapsThisWeek = roadmaps.stream()
+                .filter(r -> r.getCreatedAt() != null &&
+                        r.getCreatedAt().isAfter(weekStart))
+                .count();
+
+        Map<String, Long> popularPaths = roadmaps.stream()
+
+        	    .filter(r -> {
+
+        	        if(r.getLearningPath() == null){
+        	            return false;
+        	        }
+
+        	        String path = r.getLearningPath().trim();
+
+        	        return
+        	                path.equals("Backend Web Development") ||
+        	                path.equals("Frontend Web Development") ||
+        	                path.equals("Machine Learning") ||
+        	                path.equals("Python (Backend)");
+        	        
+        	    })
+
+        	    .collect(Collectors.groupingBy(
+        	            r -> r.getLearningPath().trim(),
+        	            Collectors.counting()
+        	    ));
+
+        return new RoadmapAnalyticsResponse(
+                totalRoadmaps,
+                roadmapsToday,
+                roadmapsThisWeek,
+                popularPaths
+        );
     }
 
     // =========================
@@ -571,4 +634,7 @@ this.resourceService = resourceService;
         user.setLastOpenedRoadmapId(roadmapId);
         userRepository.save(user);
     }
+    
+    
+    
 }

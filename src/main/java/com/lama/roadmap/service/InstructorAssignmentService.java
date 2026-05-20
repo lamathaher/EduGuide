@@ -9,7 +9,7 @@ import com.lama.roadmap.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-
+import com.lama.roadmap.dto.AssignmentStatisticsResponse;
 @Service
 public class InstructorAssignmentService {
 
@@ -61,7 +61,7 @@ public class InstructorAssignmentService {
 
         User instructor = assignment.getInstructor();
 
-        int MAX_STUDENTS = 5;
+        int MAX_STUDENTS = 10;
 
         long currentStudents = assignmentRepository
                 .findByInstructor(instructor)
@@ -150,5 +150,59 @@ public class InstructorAssignmentService {
         );
 
         return updated;
+    }
+    
+    
+    public AssignmentStatisticsResponse getStatistics() {
+
+        List<InstructorAssignment> assignments =
+                assignmentRepository.findAll();
+
+        long active = assignments.stream()
+                .filter(InstructorAssignment::isActive)
+                .count();
+
+        long pending = assignments.stream()
+                .filter(a -> "PENDING".equals(a.getStatus()))
+                .count();
+
+        long dropped = assignments.stream()
+                .filter(a ->
+                        a.getStatus() != null &&
+                        a.getStatus().contains("dropped"))
+                .count();
+
+        // capacity calculation
+        long totalInstructors =
+                userRepository.findAll()
+                        .stream()
+                        .filter(user ->
+                                user.getRole().name().equals("INSTRUCTOR"))
+                        .count();
+
+        long maxCapacity = totalInstructors * 10;
+
+        long capacityUsage = 0;
+
+        if(maxCapacity > 0){
+            capacityUsage = (active * 100) / maxCapacity;
+        }
+
+        return new AssignmentStatisticsResponse(
+                active,
+                pending,
+                dropped,
+                capacityUsage
+        );
+    }
+    
+    	
+    public List<InstructorAssignment> getPendingAssignments(){
+
+        return assignmentRepository.findAll()
+                .stream()
+                .filter(a ->
+                        "PENDING".equals(a.getStatus()))
+                .toList();
     }
 }

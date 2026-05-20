@@ -3,6 +3,7 @@ package com.lama.roadmap.controller;
 import com.lama.roadmap.dto.SaveRoadmapRequest;
 import com.lama.roadmap.dto.ChatRequest;
 import com.lama.roadmap.dto.GenerateRoadmapRequest;
+import com.lama.roadmap.dto.RoadmapAnalyticsResponse;
 import com.lama.roadmap.dto.RoadmapResponse;
 import com.lama.roadmap.model.Roadmap;
 import com.lama.roadmap.service.RoadmapService;
@@ -93,5 +94,10 @@ public class RoadmapController {
             @PathVariable Long roadmapId,
             @PathVariable Long userId) {
         roadmapService.setLastOpenedRoadmap(roadmapId, userId);
+    }
+    
+    @GetMapping("/analytics")
+    public RoadmapAnalyticsResponse getAnalytics() {
+        return roadmapService.getRoadmapAnalytics();
     }
 }

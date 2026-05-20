@@ -35,4 +35,9 @@ public class NotificationController {
                                             @RequestParam Long userId){
         notificationService.markChatNotificationsAsRead(userId, assignmentId);
     }
+    
+    @GetMapping("/all")
+    public List<Notification> getAllNotifications(){
+        return notificationService.getAllNotifications();
+    }
 }

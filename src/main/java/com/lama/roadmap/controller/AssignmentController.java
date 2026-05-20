@@ -5,7 +5,7 @@ import com.lama.roadmap.service.InstructorAssignmentService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+import com.lama.roadmap.dto.AssignmentStatisticsResponse;
 @RestController
 @RequestMapping("/api/assignments")
 public class AssignmentController {
@@ -40,6 +40,11 @@ public class AssignmentController {
             @RequestParam String droppedBy){
 
         return assignmentService.dropAssignment(id, droppedBy);
+    }
+    
+    @GetMapping("/statistics")
+    public AssignmentStatisticsResponse getStatistics() {
+        return assignmentService.getStatistics();
     }
 
 }
